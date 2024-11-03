@@ -8,7 +8,6 @@ import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
@@ -85,7 +84,7 @@ class PlayerFragment : Fragment() {
         }
 
         binding.back10sButton.setOnClickListener {
-            playerViewModel.rewindSong() // Go back 10 seconds
+            playerViewModel.rewind10Seconds() // Go back 10 seconds
         }
 
         binding.next10sButton.setOnClickListener {

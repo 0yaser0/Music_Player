@@ -35,4 +35,3 @@ class HomeViewModel : ViewModel() {
         _toastMessage.value = null
     }
 }
-

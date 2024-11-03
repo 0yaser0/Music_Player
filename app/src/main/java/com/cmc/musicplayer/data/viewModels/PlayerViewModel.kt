@@ -2,14 +2,17 @@ package com.cmc.musicplayer.data.viewModels
 
 import android.app.Application
 import android.content.Context
+import android.content.Intent
 import android.media.AudioFocusRequest
 import android.media.AudioManager
 import android.media.MediaPlayer
 import android.util.Log
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import com.cmc.musicplayer.data.models.SongModel
+import com.cmc.musicplayer.services.MusicService
 import java.io.IOException
 
 class PlayerViewModel(application: Application) : AndroidViewModel(application) {
@@ -53,6 +56,9 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         } catch (e: IOException) {
             Log.e("PlayerViewModelError", "Error setting data source", e)
         }
+
+        val serviceIntent = Intent(context, MusicService::class.java)
+        ContextCompat.startForegroundService(context, serviceIntent)
     }
 
     fun pauseSong() {
@@ -72,9 +78,12 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         mediaPlayer = null
         _isPlaying.value = false
         _currentSong.value = null
+
+        val serviceIntent = Intent(getApplication(), MusicService::class.java)
+        getApplication<Application>().stopService(serviceIntent)
     }
 
-    fun rewindSong() {
+    fun rewind10Seconds() {
         mediaPlayer?.let {
             it.seekTo(it.currentPosition - 10000) // Rewind 10 seconds
         }
