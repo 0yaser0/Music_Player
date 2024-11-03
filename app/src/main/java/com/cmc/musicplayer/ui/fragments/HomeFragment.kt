@@ -16,12 +16,12 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import com.cmc.musicplayer.R
 import com.cmc.musicplayer.data.models.SongModel
 import com.cmc.musicplayer.data.viewModels.HomeViewModel
-import com.cmc.musicplayer.databinding.FragmentHomeBinding
+import com.cmc.musicplayer.databinding.HomeFragmentBinding
 import com.cmc.musicplayer.ui.adapters.SongAdapter
 
 class HomeFragment : Fragment() {
 
-    private var _binding: FragmentHomeBinding? = null
+    private var _binding: HomeFragmentBinding? = null
     private val binding get() = _binding!!
     private lateinit var homeViewModel: HomeViewModel
     private lateinit var songAdapter: SongAdapter
@@ -31,7 +31,7 @@ class HomeFragment : Fragment() {
         inflater: LayoutInflater, container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View {
-        _binding = FragmentHomeBinding.inflate(inflater, container, false)
+        _binding = HomeFragmentBinding.inflate(inflater, container, false)
         return binding.root
     }
 

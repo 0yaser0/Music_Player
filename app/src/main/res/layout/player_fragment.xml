@@ -39,12 +39,17 @@
             android:orientation="horizontal"
             android:layout_gravity="center"
             android:gravity="center">
-
             <Button
                 android:id="@+id/previousButton"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Previous" />
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:background="@drawable/skip_previous" />
+
+            <Button
+                android:id="@+id/back10sButton"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:background="@drawable/baseline_replay_10_24" />
 
             <Button
                 android:id="@+id/playPauseButton"
@@ -54,10 +59,16 @@
                 android:layout_marginHorizontal="20dp"/>
 
             <Button
+                android:id="@+id/next10sButton"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:background="@drawable/forward_10" />
+
+            <Button
                 android:id="@+id/nextButton"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Next" />
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:background="@drawable/skip_next" />
         </LinearLayout>
     </LinearLayout>
 </layout>

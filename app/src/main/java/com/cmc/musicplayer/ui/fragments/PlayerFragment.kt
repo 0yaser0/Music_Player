@@ -15,11 +15,11 @@ import androidx.fragment.app.Fragment
 import androidx.lifecycle.ViewModelProvider
 import com.cmc.musicplayer.data.models.SongModel
 import com.cmc.musicplayer.data.viewModels.PlayerViewModel
-import com.cmc.musicplayer.databinding.FragmentPlayerBinding
+import com.cmc.musicplayer.databinding.PlayerFragmentBinding
 
 class PlayerFragment : Fragment() {
 
-    private var _binding: FragmentPlayerBinding? = null
+    private var _binding: PlayerFragmentBinding? = null
     private val binding get() = _binding!!
     private lateinit var playerViewModel: PlayerViewModel
 
@@ -29,7 +29,7 @@ class PlayerFragment : Fragment() {
         inflater: LayoutInflater, container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View {
-        _binding = FragmentPlayerBinding.inflate(inflater, container, false)
+        _binding = PlayerFragmentBinding.inflate(inflater, container, false)
         binding.lifecycleOwner = viewLifecycleOwner // Set lifecycle owner
         return binding.root
     }
@@ -43,15 +43,6 @@ class PlayerFragment : Fragment() {
         playerViewModel = ViewModelProvider(this)[PlayerViewModel::class.java]
         binding.viewModel = playerViewModel
 
-        arguments?.getParcelable<SongModel>("selectedSong")?.let { song ->
-            if (isUriAccessible(song.uri)) {
-                playerViewModel.playSong(requireContext(), song) // Start playing the song
-            } else {
-                Log.e("PlayerFragmentError", "Invalid URI: ${song.uri}")
-                // Handle invalid URI error
-            }
-        }
-
         // Observe changes to the current song
         playerViewModel.currentSong.observe(viewLifecycleOwner) { song ->
             song?.let {
@@ -61,28 +52,46 @@ class PlayerFragment : Fragment() {
             }
         }
 
+        arguments?.getParcelable<SongModel>("selectedSong")?.let { song ->
+            if (isUriAccessible(song.uri)) {
+                playerViewModel.playSong(requireContext(), song)
+            } else {
+                Log.e("PlayerFragmentError", "Invalid URI: ${song.uri}")
+            }
+        }
+
+        // Observe isPlaying to update play/pause button text
         playerViewModel.isPlaying.observe(viewLifecycleOwner) { isPlaying ->
             binding.playPauseButton.text = if (isPlaying) "Pause" else "Play"
+        }
 
-            binding.playPauseButton.setOnClickListener {
-                if (isPlaying) {
-                    playerViewModel.pauseSong()
-                } else {
-                    playerViewModel.currentSong.value?.let { song ->
-                        playerViewModel.playSong(requireContext(), song) // Assurez-vous que la chanson est bien définie
-                    }
+        // Set OnClickListener for playPauseButton only once
+        binding.playPauseButton.setOnClickListener {
+            if (playerViewModel.isPlaying.value == true) {
+                playerViewModel.pauseSong()
+            } else {
+                playerViewModel.currentSong.value?.let { song ->
+                    playerViewModel.playSong(requireContext(), song)
                 }
             }
         }
 
-        binding.nextButton.setOnClickListener {
-            playerViewModel.skipSong(requireContext()) // Passer le contexte ici
+        binding.previousButton.setOnClickListener {
+            playerViewModel.previousSong(requireContext()) // Go to the previous song
         }
 
-        // Handle previous button click
-        binding.previousButton.setOnClickListener {
-            playerViewModel.rewindSong() // Rewind to the previous song or handle accordingly
+        binding.nextButton.setOnClickListener {
+            playerViewModel.skipSong(requireContext()) // Skip to the next song
         }
+
+        binding.back10sButton.setOnClickListener {
+            playerViewModel.rewindSong() // Go back 10 seconds
+        }
+
+        binding.next10sButton.setOnClickListener {
+            playerViewModel.forward10Seconds() // Go forward 10 seconds
+        }
+
     }
 
     private fun requestStoragePermission() {

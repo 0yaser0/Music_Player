@@ -25,27 +25,35 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         application.getSystemService(Context.AUDIO_SERVICE) as AudioManager
 
     fun playSong(context: Context, song: SongModel) {
+        // Si le `MediaPlayer` est déjà en lecture pour cette chanson, ne pas le recréer
+        if (mediaPlayer != null && _currentSong.value == song) {
+            if (mediaPlayer?.isPlaying == false) {
+                mediaPlayer?.start()
+                _isPlaying.value = true
+            }
+            return
+        }
+
+        // Si on change de chanson ou si `mediaPlayer` est null, libérer l'ancien et recréer un nouveau
+        stopSong()
 
         _currentSong.value = song
         _isPlaying.value = true
 
         Log.v("PlayerViewModelSong", "Playing song from URI: ${song.uri}")
 
-        requestAudioFocus() // Demander le focus audio
+        requestAudioFocus()
 
         try {
             mediaPlayer = MediaPlayer().apply {
-                setDataSource(context, song.uri) // Utiliser le contexte passé
+                setDataSource(context, song.uri)
                 prepare()
                 start()
             }
         } catch (e: IOException) {
             Log.e("PlayerViewModelError", "Error setting data source", e)
-            // Gérer l'erreur
         }
     }
-
-
 
     fun pauseSong() {
         mediaPlayer?.let {
@@ -57,11 +65,30 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     private fun stopSong() {
+        mediaPlayer?.apply {
+            if (isPlaying) stop()
+            release()
+        }
+        mediaPlayer = null
         _isPlaying.value = false
         _currentSong.value = null
-        mediaPlayer?.stop()
-        mediaPlayer?.release() // Release resources
-        mediaPlayer = null
+    }
+
+    fun rewindSong() {
+        mediaPlayer?.let {
+            it.seekTo(it.currentPosition - 10000) // Rewind 10 seconds
+        }
+    }
+
+    fun forward10Seconds() {
+        mediaPlayer?.let {
+            val newPosition = it.currentPosition + 10000
+            if (newPosition < it.duration) {
+                it.seekTo(newPosition) // Advance 10 seconds forward
+            } else {
+                it.seekTo(it.duration) // Go to the end if the new position exceeds duration
+            }
+        }
     }
 
     fun skipSong(context: Context) {
@@ -72,11 +99,17 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
-
-    fun rewindSong() {
-        mediaPlayer?.let {
-            it.seekTo(it.currentPosition - 10000) // Rewind 10 seconds
+    fun previousSong(context: Context) {
+        _currentSong.value?.let { current ->
+            val previousSong = getPreviousSong(current) // Implement this method to get the previous song
+            previousSong?.let { playSong(context, it) } // Play the previous song
         }
+    }
+
+    // Example implementation of getPreviousSong (adjust as needed)
+    private fun getPreviousSong(current: SongModel): SongModel? {
+        // Logic to get the previous song in the playlist
+        return null // Replace with actual logic
     }
 
     private fun getNextSong(current: SongModel): SongModel? {
