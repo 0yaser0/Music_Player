@@ -5,19 +5,20 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
-import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
-import android.content.IntentFilter
 import android.media.AudioManager
 import android.media.MediaPlayer
+import android.net.Uri
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
 import com.cmc.musicplayer.R
+import com.cmc.musicplayer.ui.views.MainActivity
 
 class MusicService : Service() {
 
     private var mediaPlayer: MediaPlayer? = null
+    private var isMusicPlaying: Boolean = false // État de la musique
 
     companion object {
         const val ACTION_PAUSE = "action_pause"
@@ -33,11 +34,17 @@ class MusicService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        startForeground(1, createNotification()) // Start foreground service with the notification
+        // Démarre le service au premier plan avec la notification
+        startForeground(1, createNotification())
 
         when (intent?.action) {
             ACTION_PAUSE -> pauseMusic()
-            ACTION_PLAY -> playMusic()
+            ACTION_PLAY -> {
+                val songUriString = intent.getStringExtra("SONG_URI")
+                songUriString?.let {
+                    playMusic(Uri.parse(it)) // Convertir la chaîne URI en Uri et passer à playMusic
+                }
+            }
             ACTION_FORWARD_10_SECONDS -> forward10Seconds()
             ACTION_REWIND_10_SECONDS -> rewind10Seconds()
         }
@@ -45,11 +52,18 @@ class MusicService : Service() {
         return START_STICKY
     }
 
+
     override fun onBind(intent: Intent?): IBinder? {
         return null
     }
 
     private fun createNotification(): Notification {
+        val notificationIntent = Intent(this, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+        }
+        val contentPendingIntent = PendingIntent.getActivity(this, 0, notificationIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+
+        // Créez les intents pour les actions de la notification
         val pauseIntent = Intent(this, MusicService::class.java).apply { action = ACTION_PAUSE }
         val playIntent = Intent(this, MusicService::class.java).apply { action = ACTION_PLAY }
         val forwardIntent = Intent(this, MusicService::class.java).apply { action = ACTION_FORWARD_10_SECONDS }
@@ -61,13 +75,14 @@ class MusicService : Service() {
         val rewindPendingIntent = PendingIntent.getService(this, 3, rewindIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
 
         return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle(if (mediaPlayer?.isPlaying == true) "Playing Music" else "Music Paused")
-            .setContentText("Your song is ${if (mediaPlayer?.isPlaying == true) "playing" else "paused"}")
+            .setContentTitle(if (isMusicPlaying) "Playing Music" else "Music Paused")
+            .setContentText("Your song is ${if (isMusicPlaying) "playing" else "paused"}")
             .setSmallIcon(R.drawable.ic_music_note)
+            .setContentIntent(contentPendingIntent) // Ajouter le PendingIntent pour l'activité
             .addAction(R.drawable.baseline_replay_10_24, "Rewind 10s", rewindPendingIntent)
-            .addAction(if (mediaPlayer?.isPlaying == true) R.drawable.pause else R.drawable.play_arrow,
-                if (mediaPlayer?.isPlaying == true) "Pause" else "Play",
-                if (mediaPlayer?.isPlaying == true) pausePendingIntent else playPendingIntent)
+            .addAction(if (isMusicPlaying) R.drawable.pause else R.drawable.play_arrow,
+                if (isMusicPlaying) "Pause" else "Play",
+                if (isMusicPlaying) pausePendingIntent else playPendingIntent)
             .addAction(R.drawable.forward_10, "Forward 10s", forwardPendingIntent)
             .setStyle(
                 androidx.media.app.NotificationCompat.MediaStyle()
@@ -83,28 +98,29 @@ class MusicService : Service() {
         notificationManager.createNotificationChannel(channel)
     }
 
-    private fun playMusic() {
+    private fun playMusic(songUri: Uri) {
         if (mediaPlayer == null) {
             mediaPlayer = MediaPlayer().apply {
                 setAudioStreamType(AudioManager.STREAM_MUSIC)
-                // Set data source, prepare, and start playback (add song URI or file here)
-                // setDataSource(applicationContext, songUri) // Uncomment and set song URI
+                setDataSource(applicationContext, songUri)
                 prepare()
                 start()
             }
-        } else {
+        } else if (!isMusicPlaying) {
             mediaPlayer?.start()
         }
-        updateBroadcast() // Notify listeners of state change
-        startForeground(1, createNotification()) // Update notification
+        isMusicPlaying = true
+        updateBroadcast() // Notifier l'état à l'application
+        startForeground(1, createNotification())
     }
 
     private fun pauseMusic() {
         mediaPlayer?.let {
             if (it.isPlaying) {
                 it.pause()
-                updateBroadcast() // Notify listeners of state change
-                startForeground(1, createNotification()) // Update notification
+                isMusicPlaying = false
+                updateBroadcast() // Notifier l'état à l'application
+                startForeground(1, createNotification())
             }
         }
     }
@@ -125,7 +141,7 @@ class MusicService : Service() {
 
     private fun updateBroadcast() {
         val intent = Intent("MUSIC_PLAYER_STATE")
-        intent.putExtra("isPlaying", mediaPlayer?.isPlaying == true)
+        intent.putExtra("isPlaying", isMusicPlaying) // Utilisez l'état mis à jour
         sendBroadcast(intent)
     }
 
@@ -133,5 +149,7 @@ class MusicService : Service() {
         super.onDestroy()
         mediaPlayer?.release()
         mediaPlayer = null
+        isMusicPlaying = false
+        updateBroadcast() // Assurez-vous de notifier que la musique est arrêtée
     }
 }

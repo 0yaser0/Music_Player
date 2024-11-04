@@ -1,12 +1,16 @@
 package com.cmc.musicplayer.data.viewModels
 
 import android.app.Application
+import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.media.AudioFocusRequest
 import android.media.AudioManager
 import android.media.MediaPlayer
+import android.os.Build
 import android.util.Log
+import androidx.annotation.RequiresApi
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.LiveData
@@ -15,6 +19,7 @@ import com.cmc.musicplayer.data.models.SongModel
 import com.cmc.musicplayer.services.MusicService
 import java.io.IOException
 
+@RequiresApi(Build.VERSION_CODES.TIRAMISU)
 class PlayerViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _currentSong: MutableLiveData<SongModel?> = MutableLiveData()
@@ -27,10 +32,23 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     private val audioManager: AudioManager =
         application.getSystemService(Context.AUDIO_SERVICE) as AudioManager
 
+    private val musicStateReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            val isPlaying = intent?.getBooleanExtra("isPlaying", false) ?: false
+            _isPlaying.value = isPlaying
+        }
+    }
+
+    init {
+        val filter = IntentFilter("MUSIC_PLAYER_STATE")
+        getApplication<Application>().registerReceiver(musicStateReceiver, filter,
+            Context.RECEIVER_NOT_EXPORTED)
+    }
+
     fun playSong(context: Context, song: SongModel) {
         // Si le `MediaPlayer` est déjà en lecture pour cette chanson, ne pas le recréer
         if (mediaPlayer != null && _currentSong.value == song) {
-            if (mediaPlayer?.isPlaying == false) {
+            if (!mediaPlayer!!.isPlaying) {
                 mediaPlayer?.start()
                 _isPlaying.value = true
             }
@@ -57,7 +75,11 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
             Log.e("PlayerViewModelError", "Error setting data source", e)
         }
 
-        val serviceIntent = Intent(context, MusicService::class.java)
+        // Démarrer le service de musique avec l'URI de la chanson
+        val serviceIntent = Intent(context, MusicService::class.java).apply {
+            action = MusicService.ACTION_PLAY // Passer l'action pour jouer la musique
+            putExtra("SONG_URI", song.uri.toString()) // Passer l'URI de la chanson
+        }
         ContextCompat.startForegroundService(context, serviceIntent)
     }
 
@@ -131,33 +153,27 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
             .setOnAudioFocusChangeListener { focusChange ->
                 when (focusChange) {
                     AudioManager.AUDIOFOCUS_GAIN -> {
-                        mediaPlayer?.let { if (!it.isPlaying) it.start() } // Resume playback if needed
+                        mediaPlayer?.let {
+                            if (!it.isPlaying) {
+                                it.start()
+                                _isPlaying.value = true
+                            }
+                        }
                     }
-
-                    AudioManager.AUDIOFOCUS_LOSS -> {
-                        stopSong() // Stop playback
-                    }
-
-                    AudioManager.AUDIOFOCUS_LOSS_TRANSIENT -> {
-                        pauseSong() // Pause playback temporarily
-                    }
-
-                    AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK -> {
-                        mediaPlayer?.setVolume(0.5f, 0.5f) // Lower the volume temporarily
-                    }
+                    AudioManager.AUDIOFOCUS_LOSS -> stopSong()
+                    AudioManager.AUDIOFOCUS_LOSS_TRANSIENT -> pauseSong()
+                    AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK ->
+                        mediaPlayer?.setVolume(0.1f, 0.1f)
                 }
             }
             .build()
 
-        val result = audioManager.requestAudioFocus(focusRequest)
-        if (result != AudioManager.AUDIOFOCUS_REQUEST_GRANTED) {
-            Log.e("AudioFocus", "Failed to gain audio focus")
-        }
+        audioManager.requestAudioFocus(focusRequest)
     }
 
     override fun onCleared() {
         super.onCleared()
-        mediaPlayer?.release() // Release resources
-        mediaPlayer = null
+        stopSong() // Libérer les ressources lors de la destruction de la ViewModel
+        getApplication<Application>().unregisterReceiver(musicStateReceiver) // Ne pas oublier de désenregistrer le receiver
     }
 }
